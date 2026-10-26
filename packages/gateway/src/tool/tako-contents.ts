@@ -30,6 +30,13 @@ export interface TakoContentsConfig {
   maxRows?: number;
   /** Maximum characters of extracted web page text. Tako cards ignore it. */
   maxChars?: number;
+  /**
+   * Reveal a card's premium cells and bill them. Premium cells are withheld
+   * by default. The export then charges
+   * `content.export_pricing.premium_row_cpm_usd` per 1,000 premium records on
+   * top of the row rate. `card_json` rejects it, and web pages ignore it.
+   */
+  premium?: boolean;
 }
 
 export interface TakoContentsInput {
@@ -43,15 +50,16 @@ export interface TakoContentsInput {
     query?: string;
     max_characters?: number;
   };
+  premium?: boolean;
+  quote_only?: boolean;
 }
 
 export interface TakoContentItem extends TakoResultContent {
-  /** The result URL from the request. */
   source_url: string;
-  /** What the card shows and what its data says. Null for a web page. */
   description?: string | null;
-  /** The request's offset, echoed on a Tako card export. */
   offset?: number | null;
+  premium?: boolean;
+  redacted_cells?: Record<string, number[]> | null;
 }
 
 export interface TakoContentsResponse {
@@ -65,6 +73,9 @@ export interface TakoContentsResponse {
     data?: {
       cost_usd: number;
       datasets: number;
+    } | null;
+    variable_cost?: {
+      cost_usd: number;
     } | null;
   } | null;
 }
@@ -126,6 +137,18 @@ const takoContentsInputSchema = lazySchema(() =>
         .describe(
           'Return only the passages of a web page that answer query, instead of its full text. Tako cards reject it.',
         ),
+      premium: z
+        .boolean()
+        .optional()
+        .describe(
+          "Reveal a card's premium cells and bill them. Premium cells are withheld by default: a withheld cell reads [premium: withheld] in CSV and is null in JSON formats. The export then charges content.export_pricing.premium_row_cpm_usd per 1,000 premium records on top of the row rate; content.premium_rows counts those records. card_json rejects it, and web pages ignore it.",
+        ),
+      quote_only: z
+        .boolean()
+        .optional()
+        .describe(
+          'Return only the price of the export, without fetching content or charging for it. The item then carries cost and export_pricing, and its payload and url fields are null. Use it to check the cost of a large or premium export before requesting it.',
+        ),
     }),
   ),
 );
@@ -141,6 +164,10 @@ const takoContentsOutputSchema = lazySchema(() =>
               source_url: z.string(),
               description: z.string().nullish(),
               offset: z.number().nullish(),
+              premium: z.boolean().optional(),
+              redacted_cells: z
+                .record(z.string(), z.array(z.number()))
+                .nullish(),
             }),
           ),
           usage: z
@@ -150,6 +177,7 @@ const takoContentsOutputSchema = lazySchema(() =>
               data: z
                 .object({ cost_usd: z.number(), datasets: z.number() })
                 .nullish(),
+              variable_cost: z.object({ cost_usd: z.number() }).nullish(),
             })
             .nullish(),
         })

@@ -9,6 +9,7 @@ describe('takoContents', () => {
         mode: 'url',
         contentFormat: 'csv',
         maxRows: 500,
+        premium: true,
       }),
     ).toMatchObject({
       type: 'provider',
@@ -17,6 +18,7 @@ describe('takoContents', () => {
         mode: 'url',
         contentFormat: 'csv',
         maxRows: 500,
+        premium: true,
       },
       isProviderExecuted: true,
     });
@@ -46,6 +48,85 @@ describe('takoContents', () => {
             max_characters: { type: 'number' },
           },
         },
+        premium: {
+          type: 'boolean',
+          description: expect.stringContaining('premium_row_cpm_usd'),
+        },
+        quote_only: { type: 'boolean' },
+      },
+    });
+  });
+
+  it('validates a price quote', async () => {
+    const result = await safeValidateTypes({
+      value: {
+        request_id: 'contents-5',
+        contents: [
+          {
+            source_url: 'https://tako.com/card/abc/',
+            content_format: null,
+            cost: 0.42,
+            data: null,
+            url: null,
+            export_pricing: {
+              baseline_usd: 0.02,
+              free_rows: 0,
+              max_rows_ceiling: 100000,
+              row_cpm_usd: 0.5,
+              premium_row_cpm_usd: { company_record: 20 },
+              variable_cost_max_usd: null,
+            },
+            premium_rows: { company_record: 12 },
+          },
+        ],
+      },
+      schema: asSchema(takoContents().outputSchema),
+    });
+
+    expect(result).toMatchObject({
+      success: true,
+      value: {
+        contents: [
+          {
+            export_pricing: { premium_row_cpm_usd: { company_record: 20 } },
+            premium_rows: { company_record: 12 },
+          },
+        ],
+      },
+    });
+  });
+
+  it('validates a premium export with withheld cells', async () => {
+    const result = await safeValidateTypes({
+      value: {
+        request_id: 'contents-6',
+        contents: [
+          {
+            source_url: 'https://tako.com/card/abc/',
+            content_format: 'csv',
+            cost: 0.31,
+            data: 'Company,Email\nAcme,[premium: withheld]',
+            total_rows: 1,
+            truncated: false,
+            premium: false,
+            premium_rows: { person_contact: 1 },
+            redacted_cells: { Email: [0] },
+          },
+        ],
+        usage: {
+          total_cost_usd: 0.31,
+          data: { cost_usd: 0.31, datasets: 1 },
+          variable_cost: { cost_usd: 0 },
+        },
+      },
+      schema: asSchema(takoContents().outputSchema),
+    });
+
+    expect(result).toMatchObject({
+      success: true,
+      value: {
+        contents: [{ premium: false, redacted_cells: { Email: [0] } }],
+        usage: { variable_cost: { cost_usd: 0 } },
       },
     });
   });

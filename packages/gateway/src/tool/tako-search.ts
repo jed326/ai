@@ -169,7 +169,10 @@ export interface TakoResultContent {
     free_rows: number;
     max_rows_ceiling: number;
     row_cpm_usd: number;
+    premium_row_cpm_usd?: Record<string, number> | null;
+    variable_cost_max_usd?: number | null;
   } | null;
+  premium_rows?: Record<string, number> | null;
   manifest?: Array<{
     dtype?: 'boolean' | 'date' | 'datetime' | 'number' | 'string' | null;
     entity?: string | null;
@@ -463,8 +466,11 @@ export const takoResultContentSchema = () =>
           free_rows: z.number(),
           max_rows_ceiling: z.number(),
           row_cpm_usd: z.number(),
+          premium_row_cpm_usd: z.record(z.string(), z.number()).nullish(),
+          variable_cost_max_usd: z.number().nullish(),
         })
         .nullish(),
+      premium_rows: z.record(z.string(), z.number()).nullish(),
       manifest: z
         .array(
           z.object({

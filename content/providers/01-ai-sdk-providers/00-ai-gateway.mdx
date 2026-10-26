@@ -1352,11 +1352,13 @@ The Tako Contents tool supports these optional configuration options. They overr
 - **contentFormat** _'csv' | 'json_compact' | 'json_records' | 'card_json'_ - Serialization for card data. `'card_json'` returns the card's own structure, and not every card type supports it. Web pages always return text.
 - **maxRows** _number_ - Row cap per card. A card with a date column keeps its newest rows. A data surcharge applies per 1,000 exported rows; lower values reduce cost. Omit it to use the allowance in `cards.content.export_pricing`.
 - **maxChars** _number_ - Character cap on extracted web page text. Omit it to return the whole page.
+- **premium** _boolean_ - Reveal a card's premium cells and bill them. Premium cells are withheld by default: a withheld cell reads `[premium: withheld]` in CSV and is `null` in JSON formats, and `redacted_cells` lists which rows held a value. With `premium: true`, the export charges `export_pricing.premium_row_cpm_usd` per 1,000 premium records on top of the row rate, and `premium_rows` counts those records. `'card_json'` rejects it, and web pages ignore it.
 
 The model can also set these per call:
 
 - **offset** _number_ - Card rows to skip before the export starts. Use it with `max_rows` to page through a long list. Cards with a date column, sports cards, and `card_json` exports reject an offset above 0.
 - **highlights** _object_ - Return only the passages of a web page that answer `highlights.query`, instead of its full text. `highlights.max_characters` caps the passages, defaulting to 4,000 characters.
+- **quote_only** _boolean_ - Return only the price of the export, without fetching content or charging for it. The item carries `cost` and `export_pricing`, and its payload and `url` fields are `null`. Use it to check the cost of a large or premium export before requesting it.
 
 Fetch only cards whose search result carries a `content` descriptor. A card without one can't be exported, so the tool returns an error for it.
 
