@@ -3,6 +3,7 @@ import { browserbaseSearch } from './tool/browserbase-search';
 import { exaSearch } from './tool/exa-search';
 import { parallelSearch } from './tool/parallel-search';
 import { perplexitySearch } from './tool/perplexity-search';
+import { takoContents } from './tool/tako-contents';
 import { takoSearch } from './tool/tako-search';
 
 /**
@@ -52,6 +53,15 @@ export const gatewayTools = {
    * domain, language, date range, and recency filters.
    */
   perplexitySearch,
+
+  /**
+   * Fetch the full content behind a Tako Search result: a Tako card's data
+   * rows or a web page's extracted text.
+   *
+   * Supports inline delivery or a short-lived download link, card data
+   * formats, row paging, and query-focused passages from web pages.
+   */
+  takoContents,
 
   /**
    * Search the web and Tako's curated knowledge graph in one call for
