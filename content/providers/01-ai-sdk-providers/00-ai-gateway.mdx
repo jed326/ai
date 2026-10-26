@@ -1293,6 +1293,73 @@ for await (const part of result.stream) {
 }
 ```
 
+#### Tako Contents
+
+The Tako Contents tool fetches the full content behind a Tako Search result using [Tako's Contents API](https://docs.tako.com/documentation/integrating-tako/contents/overview). Pass it a card's `webpage_url` to get the card's data rows, or a web result's `url` to get the page's extracted text. This tool is executed by the AI Gateway. Use it with Tako Search, so the model can search first and then fetch the results it needs:
+
+```ts
+import { gateway, generateText, isStepCount } from 'ai';
+
+const result = await generateText({
+  model: 'openai/gpt-5.4-nano',
+  prompt:
+    'Find a Tako card for Nvidia quarterly revenue, fetch its rows, and report the largest quarter-over-quarter increase.',
+  tools: {
+    tako_search: gateway.tools.takoSearch(),
+    tako_contents: gateway.tools.takoContents(),
+  },
+  stopWhen: isStepCount(5),
+});
+
+console.log(result.text);
+```
+
+A long card export can fill the model's context. To keep the data out of context, set `mode: 'url'`. Each content item then carries a signed download link in `url`, and your application saves the file:
+
+```ts
+import { writeFile } from 'node:fs/promises';
+import { gateway, generateText, isStepCount } from 'ai';
+
+const result = await generateText({
+  model: 'openai/gpt-5.4-nano',
+  prompt:
+    'Find a Tako card for US monthly unemployment since 1990 and export its full data.',
+  tools: {
+    tako_search: gateway.tools.takoSearch(),
+    tako_contents: gateway.tools.takoContents({
+      mode: 'url',
+      contentFormat: 'csv',
+    }),
+  },
+  stopWhen: isStepCount(3),
+});
+
+for (const toolResult of result.steps.flatMap(step => step.toolResults)) {
+  if (toolResult.dynamic || toolResult.toolName !== 'tako_contents') continue;
+  if ('error' in toolResult.output) continue;
+
+  for (const item of toolResult.output.contents) {
+    if (!item.url) continue;
+    const response = await fetch(item.url);
+    await writeFile('unemployment.csv', await response.text());
+  }
+}
+```
+
+The Tako Contents tool supports these optional configuration options. They override values the model includes in a tool call:
+
+- **mode** _'inline' | 'url'_ - Delivery mode. `'inline'` returns the content in the tool result. `'url'` returns a signed download link that expires after a few minutes.
+- **contentFormat** _'csv' | 'json_compact' | 'json_records' | 'card_json'_ - Serialization for card data. `'card_json'` returns the card's own structure, and not every card type supports it. Web pages always return text.
+- **maxRows** _number_ - Row cap per card. A card with a date column keeps its newest rows. A data surcharge applies per 1,000 exported rows; lower values reduce cost. Omit it to use the allowance in `cards.content.export_pricing`.
+- **maxChars** _number_ - Character cap on extracted web page text. Omit it to return the whole page.
+
+The model can also set these per call:
+
+- **offset** _number_ - Card rows to skip before the export starts. Use it with `max_rows` to page through a long list. Cards with a date column, sports cards, and `card_json` exports reject an offset above 0.
+- **highlights** _object_ - Return only the passages of a web page that answer `highlights.query`, instead of its full text. `highlights.max_characters` caps the passages, defaulting to 4,000 characters.
+
+Fetch only cards whose search result carries a `content` descriptor. A card without one can't be exported, so the tool returns an error for it.
+
 #### Parallel Search
 
 The Parallel Search tool enables models to search the web using [Parallel AI's Search API](https://docs.parallel.ai/api-reference/search/search). The model provides a research objective and a few keyword queries, and the tool returns relevant excerpts from web pages, optimized for LLM consumption.

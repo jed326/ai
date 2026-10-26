@@ -420,7 +420,7 @@ const takoSearchInputSchema = lazySchema(() =>
 const takoDatasetCellSchema = () =>
   z.union([z.boolean(), z.number(), z.string()]).nullable();
 
-const takoResultContentSchema = () =>
+export const takoResultContentSchema = () =>
   z
     .object({
       content_format: z
